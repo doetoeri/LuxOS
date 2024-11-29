@@ -16,12 +16,14 @@
             flex-direction: column;
             height: 100vh;
         }
+
         #screen {
             flex: 1;
             overflow-y: auto;
             padding: 10px;
             white-space: pre-wrap;
         }
+
         #input {
             border: none;
             background: black;
@@ -31,11 +33,20 @@
             outline: none;
             caret-color: white;
         }
+
+        #input::placeholder {
+            color: darkgreen;
+        }
     </style>
 </head>
 <body>
+    <!-- LuxOS 화면 -->
     <div id="screen"></div>
-    <input type="text" id="input" autofocus placeholder="Type here...">
+
+    <!-- 명령 입력 필드 -->
+    <input type="text" id="input" autofocus placeholder="Type a command here...">
+    
+    <!-- JavaScript 파일 연결 -->
     <script src="luxos.js"></script>
 </body>
 </html>
