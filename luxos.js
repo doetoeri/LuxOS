@@ -5,18 +5,22 @@ class LuxOSEmulator {
         this.fileSystem = {};
         this.screenBuffer = [];
         this.commands = {};
+        this.installedApps = []; // 앱 설치 상태를 저장
+        this.availableApps = {
+            LuxText: { description: "Text Editor for LuxOS", extension: ".luxd" },
+            LuxSheet: { description: "Spreadsheet for LuxOS", extension: ".luxs" },
+            LuxFax: { description: "Fax application for LuxOS" },
+            LuxMail: { description: "Email application for LuxOS" },
+        };
         this.initCommands();
-        this.installedApps = ["Text Editor", "Spreadsheet", "Fax", "Email"];
     }
 
     initCommands() {
         this.commands = {
-            help: () => "Available commands: help, install, listapps, fax, email, write, read, clear",
-            listapps: () => this.installedApps.join("\n"),
-            install: (app) => {
-                if (this.installedApps.includes(app)) return `${app} is already installed.`;
-                return `${app} installation complete.`;
-            },
+            help: () =>
+                `Available commands: help, install <app_name>, listapps, fax, email, write <file> <content>, read <file>, clear`,
+            listapps: () => this.installedApps.join("\n") || "No apps installed.",
+            install: (appName) => this.installApp(appName),
             write: (name, content) => {
                 if (!name || !content) return "Usage: write <file_name> <content>";
                 this.fileSystem[name] = content;
@@ -34,8 +38,22 @@ class LuxOSEmulator {
             clear: () => {
                 this.screenBuffer = [];
                 return "Screen cleared.";
-            }
+            },
         };
+    }
+
+    installApp(appName) {
+        if (!appName) return "Usage: install <app_name>";
+        if (!this.availableApps[appName]) return `Unknown app: ${appName}`;
+        if (this.installedApps.includes(appName)) return `${appName} is already installed.`;
+
+        this.writeToScreen(`Installing ${appName}...`);
+        setTimeout(() => {
+            this.installedApps.push(appName);
+            this.writeToScreen(`${appName} installation complete.`);
+            this.render();
+        }, 2000); // 설치 진행 효과를 위해 2초 딜레이
+        return `Starting installation for ${appName}...`;
     }
 
     executeCommand(input) {
