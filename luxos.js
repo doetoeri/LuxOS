@@ -1,106 +1,129 @@
-class LuxOSEmulator {
-    constructor(memorySize = 65536) {
-        this.memory = new Uint8Array(memorySize);
-        this.registers = { A: 0x00, X: 0x00, Y: 0x00, PC: 0x0000, SP: 0xFF, FLAGS: 0x00 };
-        this.fileSystem = {};
-        this.screenBuffer = [];
+class LuxOS {
+    constructor() {
+        this.disk = {}; // 가상 디스크
+        this.allowedExtensions = ['js', 'json', 'html', 'css']; // 허용된 파일 형식
         this.commands = {};
-        this.installedApps = []; // 앱 설치 상태를 저장
-        this.availableApps = {
-            LuxText: { description: "Text Editor for LuxOS", extension: ".luxd" },
-            LuxSheet: { description: "Spreadsheet for LuxOS", extension: ".luxs" },
-            LuxFax: { description: "Fax application for LuxOS" },
-            LuxMail: { description: "Email application for LuxOS" },
-        };
         this.initCommands();
+        this.isDiskInserted = false; // HyperDisk 삽입 상태
     }
 
     initCommands() {
         this.commands = {
-            help: () =>
-                `Available commands: help, install <app_name>, listapps, fax, email, write <file> <content>, read <file>, clear`,
-            listapps: () => this.installedApps.join("\n") || "No apps installed.",
-            install: (appName) => this.installApp(appName),
-            write: (name, content) => {
-                if (!name || !content) return "Usage: write <file_name> <content>";
-                this.fileSystem[name] = content;
-                return `File '${name}' created with content: "${content}"`;
-            },
-            read: (name) => this.fileSystem[name] || "File not found.",
-            fax: (number, message) => {
-                if (!number || !message) return "Usage: fax <number> <message>";
-                return `Fax sent to ${number} with message: "${message}"`;
-            },
-            email: (address, subject, body) => {
-                if (!address || !subject || !body) return "Usage: email <address> <subject> <body>";
-                return `Email sent to ${address}\nSubject: ${subject}\nBody: ${body}`;
-            },
-            clear: () => {
-                this.screenBuffer = [];
-                return "Screen cleared.";
-            },
+            help: () => this.help(),
+            ls: () => this.listFiles(),
+            read: (fileName) => this.readFile(fileName),
+            readmodule: () => this.readModule(),
         };
     }
 
-    installApp(appName) {
-        if (!appName) return "Usage: install <app_name>";
-        if (!this.availableApps[appName]) return `Unknown app: ${appName}`;
-        if (this.installedApps.includes(appName)) return `${appName} is already installed.`;
-
-        this.writeToScreen(`Installing ${appName}...`);
+    // 명령어: readmodule - 파일 업로드 창 열기 및 HyperDisk 읽기 시뮬레이션
+    readModule() {
+        if (this.isDiskInserted) {
+            return "HyperDisk 1.0 is already inserted. Remove it before inserting a new one.";
+        }
+        this.isDiskInserted = true; // 디스크 삽입
+        this.displayMessage("HyperDisk 1.0 inserted. Reading module...");
         setTimeout(() => {
-            this.installedApps.push(appName);
-            this.writeToScreen(`${appName} installation complete.`);
-            this.render();
-        }, 2000); // 설치 진행 효과를 위해 2초 딜레이
-        return `Starting installation for ${appName}...`;
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = this.allowedExtensions.map((ext) => `.${ext}`).join(',');
+            fileInput.style.display = 'none';
+            fileInput.onchange = (event) => this.handleFileUpload(event);
+            document.body.appendChild(fileInput);
+            fileInput.click();
+            document.body.removeChild(fileInput);
+        }, 2000);
+        return "Please select a module file to install.";
     }
 
-    executeCommand(input) {
-        const [command, ...args] = input.trim().split(" ");
-        if (this.commands[command]) return this.commands[command](...args);
-        return `Unknown command: ${command}`;
-    }
+    // 파일 업로드 처리
+    handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) {
+            this.displayMessage("No file selected. HyperDisk 1.0 ejected.");
+            this.isDiskInserted = false;
+            return;
+        }
 
-    render() {
-        return this.screenBuffer.join("\n");
-    }
+        const fileExtension = file.name.split('.').pop();
+        if (!this.allowedExtensions.includes(fileExtension)) {
+            this.displayMessage(`Unsupported file type '.${fileExtension}'. HyperDisk 1.0 ejected.`);
+            this.isDiskInserted = false;
+            return;
+        }
 
-    writeToScreen(line) {
-        this.screenBuffer.push(line);
-        if (this.screenBuffer.length > 24) this.screenBuffer.shift();
-    }
-
-    start() {
-        this.writeToScreen("Welcome to LuxOS 8-bit Emulator");
-        this.writeToScreen("Type 'help' for a list of commands.");
-        this.renderLoop();
-    }
-
-    renderLoop() {
-        const screen = document.getElementById("screen");
-        const input = document.getElementById("input");
-
-        const renderScreen = () => {
-            screen.textContent = this.render();
-        };
-
-        input.addEventListener("keypress", (e) => {
-            if (e.key === "Enter") {
-                const command = input.value;
-                input.value = "";
-                const output = this.executeCommand(command);
-                this.writeToScreen(`> ${command}`);
-                this.writeToScreen(output);
-                renderScreen();
+        const reader = new FileReader();
+        reader.onload = () => {
+            this.disk[file.name] = reader.result; // 파일 저장
+            this.displayMessage(`Module '${file.name}' installed successfully.`);
+            if (fileExtension === 'js') {
+                this.loadModule(file.name, reader.result); // JavaScript 모듈 로드
             }
-        });
+            this.isDiskInserted = false; // 디스크 초기화
+        };
+        reader.readAsText(file);
+    }
 
-        renderScreen();
+    // JavaScript 모듈 로드 및 명령어 등록
+    loadModule(fileName, content) {
+        try {
+            const module = new Function(`return ${content}`)(); // 모듈 실행
+            if (module.commands) {
+                Object.assign(this.commands, module.commands);
+                this.displayMessage(`Commands from '${fileName}' have been registered.`);
+            }
+        } catch (error) {
+            this.displayMessage(`Failed to load module '${fileName}': ${error.message}`);
+        }
+    }
+
+    // 파일 목록 출력
+    listFiles() {
+        const files = Object.keys(this.disk);
+        return files.length ? `Files on HyperDisk:\n${files.join('\n')}` : 'No files found.';
+    }
+
+    // 파일 내용 읽기
+    readFile(fileName) {
+        if (!this.disk[fileName]) return `File '${fileName}' not found.`;
+        return `Contents of '${fileName}':\n${this.disk[fileName]}`;
+    }
+
+    // 시스템 메시지 출력
+    displayMessage(message) {
+        const output = document.getElementById('output');
+        output.textContent += `${message}\n`;
+        output.scrollTop = output.scrollHeight;
+    }
+
+    // LuxOS 명령어 목록
+    help() {
+        return `
+LuxOS* 명령어:
+- help: 명령어 목록 출력
+- ls: 디스크 파일 목록 출력
+- read <파일명>: 파일 내용 읽기
+- readmodule: HyperDisk 1.0 모듈 읽기 시작
+        `;
     }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-    const luxOS = new LuxOSEmulator();
-    luxOS.start();
+document.addEventListener('DOMContentLoaded', () => {
+    const luxOS = new LuxOS();
+    const inputField = document.getElementById('input');
+    const output = document.getElementById('output');
+
+    const execute = () => {
+        const command = inputField.value.trim();
+        if (command) {
+            const result = luxOS.commands[command] ? luxOS.commands[command]() : `Unknown command: ${command}`;
+            output.textContent += `> ${command}\n${result}\n`;
+            inputField.value = '';
+            output.scrollTop = output.scrollHeight;
+        }
+    };
+
+    inputField.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') execute();
+    });
 });
