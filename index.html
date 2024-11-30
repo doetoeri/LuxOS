@@ -20,20 +20,39 @@
             overflow-y: auto;
             padding: 10px;
             white-space: pre-wrap;
+        }
+        #input-line {
+            display: flex;
+            align-items: center;
+        }
+        #input-line span {
+            color: green;
+        }
+        #input {
+            border: none;
+            background: black;
+            color: green;
+            font-family: monospace;
+            font-size: 16px;
             outline: none;
             caret-color: green;
+            flex: 1;
         }
     </style>
 </head>
 <body>
-    <div id="terminal" contenteditable="true" spellcheck="false">
+    <div id="terminal">
         Welcome to LuxOS* Emulator  
         Type 'help' for a list of commands.  
-        >
+    </div>
+    <div id="input-line">
+        <span>&gt;</span> <!-- Prompt symbol -->
+        <input type="text" id="input" autofocus spellcheck="false">
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const terminal = document.getElementById('terminal');
+            const inputField = document.getElementById('input');
 
             const commands = {
                 help: () => "Available commands:\nhelp: Show this help message\nls: List files\nreadmodule: Insert HyperDisk 1.0 to read a module\nread <file>: Read file content",
@@ -42,29 +61,42 @@
                 readmodule: () => "HyperDisk 1.0 functionality activated (File upload simulation starts).",
             };
 
-            terminal.addEventListener('keydown', (e) => {
+            const executeCommand = (command) => {
+                const [cmd, ...args] = command.trim().split(' ');
+                if (commands[cmd]) {
+                    return commands[cmd](...args);
+                } else if (cmd === 'readmodule') {
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.style.display = 'none';
+                    fileInput.onchange = (event) => {
+                        const file = event.target.files[0];
+                        const output = file ? `File '${file.name}' uploaded successfully.` : "No file selected.";
+                        appendOutput(output);
+                    };
+                    document.body.appendChild(fileInput);
+                    fileInput.click();
+                    document.body.removeChild(fileInput);
+                    return "Reading module from HyperDisk 1.0...";
+                }
+                return `Unknown command: ${cmd}`;
+            };
+
+            const appendOutput = (output) => {
+                terminal.textContent += `\n${output}`;
+                terminal.scrollTop = terminal.scrollHeight;
+            };
+
+            inputField.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    const input = terminal.textContent.split('\n').pop().trim();
-                    const [command, ...args] = input.replace('>', '').trim().split(' ');
-
-                    let output = commands[command] ? commands[command](...args) : `Unknown command: ${command}`;
-                    if (command === "readmodule") {
-                        const fileInput = document.createElement('input');
-                        fileInput.type = 'file';
-                        fileInput.style.display = 'none';
-                        fileInput.onchange = (event) => {
-                            const file = event.target.files[0];
-                            output = file ? `File '${file.name}' uploaded successfully.` : "No file selected.";
-                            terminal.textContent += `\n${output}\n>`;
-                        };
-                        document.body.appendChild(fileInput);
-                        fileInput.click();
-                        document.body.removeChild(fileInput);
-                        return;
+                    const command = inputField.value;
+                    if (command.trim() !== '') {
+                        terminal.textContent += `\n> ${command}`;
+                        const output = executeCommand(command);
+                        appendOutput(output);
+                        inputField.value = '';
                     }
-                    terminal.textContent += `\n${output}\n>`;
-                    terminal.scrollTop = terminal.scrollHeight;
                 }
             });
         });
