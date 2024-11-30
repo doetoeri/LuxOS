@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LuxOS* HyperDisk 1.0 Emulator</title>
+    <title>LuxOS* Emulator</title>
     <style>
         body {
             background-color: black;
@@ -20,27 +20,54 @@
             overflow-y: auto;
             padding: 10px;
             white-space: pre-wrap;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-        #input {
-            border: none;
-            background: black;
-            color: green;
-            font-size: 16px;
-            padding: 10px;
             outline: none;
-            flex-shrink: 0;
+            caret-color: green;
         }
     </style>
 </head>
 <body>
-    <div id="terminal">
-        Welcome to LuxOS* with HyperDisk 1.0
-        Type 'help' for a list of commands.
+    <div id="terminal" contenteditable="true" spellcheck="false">
+        Welcome to LuxOS* Emulator  
+        Type 'help' for a list of commands.  
+        >
     </div>
-    <input type="text" id="input" placeholder="Type a command here...">
-    <script src="luxos.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const terminal = document.getElementById('terminal');
+
+            const commands = {
+                help: () => "Available commands:\nhelp: Show this help message\nls: List files\nreadmodule: Insert HyperDisk 1.0 to read a module\nread <file>: Read file content",
+                ls: () => "No files found.",
+                read: (fileName) => `Reading file: ${fileName} (Feature not implemented yet)`,
+                readmodule: () => "HyperDisk 1.0 functionality activated (File upload simulation starts).",
+            };
+
+            terminal.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const input = terminal.textContent.split('\n').pop().trim();
+                    const [command, ...args] = input.replace('>', '').trim().split(' ');
+
+                    let output = commands[command] ? commands[command](...args) : `Unknown command: ${command}`;
+                    if (command === "readmodule") {
+                        const fileInput = document.createElement('input');
+                        fileInput.type = 'file';
+                        fileInput.style.display = 'none';
+                        fileInput.onchange = (event) => {
+                            const file = event.target.files[0];
+                            output = file ? `File '${file.name}' uploaded successfully.` : "No file selected.";
+                            terminal.textContent += `\n${output}\n>`;
+                        };
+                        document.body.appendChild(fileInput);
+                        fileInput.click();
+                        document.body.removeChild(fileInput);
+                        return;
+                    }
+                    terminal.textContent += `\n${output}\n>`;
+                    terminal.scrollTop = terminal.scrollHeight;
+                }
+            });
+        });
+    </script>
 </body>
 </html>
