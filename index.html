@@ -54,37 +54,48 @@
             const terminal = document.getElementById('terminal');
             const inputField = document.getElementById('input');
 
+            const fileUploadInput = document.createElement('input'); // Hidden file input
+            fileUploadInput.type = 'file';
+            fileUploadInput.style.display = 'none';
+            document.body.appendChild(fileUploadInput); // Append to DOM for access
+
+            const disk = {}; // Virtual disk for storing files
+
+            const appendOutput = (output) => {
+                terminal.textContent += `\n${output}`;
+                terminal.scrollTop = terminal.scrollHeight;
+            };
+
+            fileUploadInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        disk[file.name] = reader.result; // Save file to virtual disk
+                        appendOutput(`File '${file.name}' uploaded successfully.`);
+                    };
+                    reader.readAsText(file);
+                } else {
+                    appendOutput("No file selected.");
+                }
+            });
+
             const commands = {
                 help: () => "Available commands:\nhelp: Show this help message\nls: List files\nreadmodule: Insert HyperDisk 1.0 to read a module\nread <file>: Read file content",
-                ls: () => "No files found.",
-                read: (fileName) => `Reading file: ${fileName} (Feature not implemented yet)`,
-                readmodule: () => "HyperDisk 1.0 functionality activated (File upload simulation starts).",
+                ls: () => Object.keys(disk).length ? Object.keys(disk).join('\n') : "No files found.",
+                readmodule: () => {
+                    appendOutput("Insert HyperDisk 1.0 to upload a file.");
+                    fileUploadInput.click(); // Trigger file upload dialog
+                },
+                read: (fileName) => disk[fileName] ? `Contents of ${fileName}:\n${disk[fileName]}` : `File '${fileName}' not found.`,
             };
 
             const executeCommand = (command) => {
                 const [cmd, ...args] = command.trim().split(' ');
                 if (commands[cmd]) {
                     return commands[cmd](...args);
-                } else if (cmd === 'readmodule') {
-                    const fileInput = document.createElement('input');
-                    fileInput.type = 'file';
-                    fileInput.style.display = 'none';
-                    fileInput.onchange = (event) => {
-                        const file = event.target.files[0];
-                        const output = file ? `File '${file.name}' uploaded successfully.` : "No file selected.";
-                        appendOutput(output);
-                    };
-                    document.body.appendChild(fileInput);
-                    fileInput.click();
-                    document.body.removeChild(fileInput);
-                    return "Reading module from HyperDisk 1.0...";
                 }
                 return `Unknown command: ${cmd}`;
-            };
-
-            const appendOutput = (output) => {
-                terminal.textContent += `\n${output}`;
-                terminal.scrollTop = terminal.scrollHeight;
             };
 
             inputField.addEventListener('keypress', (e) => {
